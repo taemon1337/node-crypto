@@ -7,6 +7,7 @@ var Cryptor = function(opts) {
   this.iterations = opts.iterations || 10000; // only for simple passphrase
   this.salt = opts.salt || "1234567890abcdef1234567890abcdef"; // only for simple passphrase
   this.iv = opts.iv || "1234567890abcdef1234567890abcdef"; // only for simple passphrase
+  this.keylen = opts.keylen || 256;
 }
 
 Cryptor.prototype = {
@@ -52,7 +53,7 @@ Cryptor.prototype = {
     var iv = null;
     var salt = null;
     var iterations = null;
-    var keylen = formdata.keylen || 256;
+    var keylen = formdata.keylen || this.keylen;
     var cipher = formdata.cipher || ["aes",keylen,"cbc"].join('-');
     var encrypt = formdata.encrypt;
 
@@ -63,7 +64,7 @@ Cryptor.prototype = {
       salt = crypto.randomBytes(keylen/8).toString('hex'); 
       iterations = formdata.iterations || this.iterations;
       key = crypto.pbkdf2Sync(crypto.randomBytes(keylen/8), salt, iterations, keylen/8, 'sha512').toString('hex');
-      iv = crypto.randomBytes(keylen/16).toString('hex');
+      iv = crypto.randomBytes(16).toString('hex');
     } else if(formdata.passphrase.indexOf(this.sep) === -1) {
       // passphrase does not contain sep, so its a simple string
       console.log("Simple Passphrase: ", formdata.passphrase);

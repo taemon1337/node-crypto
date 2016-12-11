@@ -1,9 +1,10 @@
 var fs = require('fs'),
-    Cryptor = require('./cryptor'),
-    cryptor = new Cryptor({})
+    Cryptor = require('./cryptor')
     ;
 
+var cryptor = new Cryptor({ keylen: 256 }); // or try 128,192,256
 var DATA = "hello world";
+var results = [];
 
 var CryptFile = function(infile, outfile, params, success) {
   console.log({ infile: infile, outfile: outfile, params: params });
@@ -29,22 +30,26 @@ var TestCryptor = function(params, cb) {
 
     CryptFile(f2, f3, { passphrase: passphrase, encrypt: !params.encrypt }, function(params) {
       if(DATA === fs.readFileSync(f3, { encoding: "utf8" })) {
-        console.warn("PASS: ", f3, " == ", DATA);
+        results.push("PASS");
       } else {
-        console.warn("FAIL: ", f3, " != ", DATA);
+        result.push("FAIL");
       }
       fs.unlinkSync(f1);
       fs.unlinkSync(f2);
       fs.unlinkSync(f3);
       console.log("####################################################################");
-      if(cb) { cb() }
+      if(cb) { cb(params) }
     });
   });
 };
 
-TestCryptor({ encrypt: true, passphrase: "" }, function() {
-  TestCryptor({ encrypt: true, passphrase: "simple" }, function() {
-    TestCryptor({ encrypt: true, passphrase: "1111111111111111111111111111111111111111111111111111111111111111:22222222222222222222222222222222" });
+TestCryptor({ encrypt: true, passphrase: "" }, function(params) {
+  TestCryptor({ encrypt: true, passphrase: "simple" }, function(params) {
+    var key = Array(params.keylen*2/8+1).join("1");
+    var iv = Array(16*2+1).join("2");
+    TestCryptor({ encrypt: true, passphrase: [key,iv].join(params.sep) }, function() {
+      console.log("\n\nTest Results: ", results);
+    });
   });
 });
 
