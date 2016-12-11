@@ -1,67 +1,91 @@
 var fs = require('fs'),
-    crypto = require('crypto'),
-    decrypt = process.argv.indexOf('--decrypt'),
-    ivi = process.argv.indexOf('--iv'),
-    pi = process.argv.indexOf('--pass'),
-    haskey = process.argv.indexOf('--key'),
-    keyli = process.argv.indexOf('--keysize'),
-    out = process.argv.indexOf('--out'),
-    infile = process.argv[process.argv.length-1],
-    outfile = infile
+    crypto = require('crypto')
     ;
 
-var cipher = null;
-var iv = null;
-var pass = null;
-var key = null;
-var salt = 'salt';
-var keylen = null;
-
-if(keyli !== -1) {
-  keylen = parseInt(process.argv[keyli+1]);
-} else {
-  keylen = 256;
+var Cryptor = function(opts) {
+  this.sep = opts.sep || ":";
+  this.iterations = opts.iterations || 10000; // only for simple passphrase
+  this.salt = opts.salt || "1234567890abcdef1234567890abcdef"; // only for simple passphrase
+  this.iv = opts.iv || "1234567890abcdef1234567890abcdef"; // only for simple passphrase
 }
 
-if(ivi !== -1) {
-  iv = process.argv[ivi+1];
-} else {
-  iv = crypto.randomBytes(16).toString('hex');
-}
+Cryptor.prototype = {
+  crypt: function(stream, formdata) {
+    if(formdata.encrypt) {
+      return this.encrypt(stream, formdata);
+    } else {
+      return this.decrypt(stream, formdata);
+    }
+  },
+  encrypt: function(stream, formdata) {
+    var cipher = null;
+    var data = this.parseFormData(formdata);
 
-if(pi !== -1) {
-  pass = process.argv[pi+1];
-} else {
-  pass = 'password'; // a tip from chip
-}
+    if(data.iv) {
+      console.log("Encryption Params: ", data);
+      cipher = crypto.createCipheriv(data.cipher, new Buffer(data.key,'hex'), new Buffer(data.iv,'hex'));
+    } else {
+      console.log("Encryption Params: ", data);
+      cipher = crypto.createCipher(data.cipher, new Buffer(data.key,'hex'));
+    }
 
-console.log("Input File: ", infile);
-console.log("Init Vector: ", iv);
+    cipher.cryptor = data;
+    return stream.pipe(cipher);
+  },
+  decrypt: function(stream, formdata) {
+    var cipher = null;
+    var data = this.parseFormData(formdata);
 
-if(haskey !== -1) {
-  key = process.argv[haskey+1];
-} else {
-  key = crypto.pbkdf2Sync(pass, salt, 10000, keylen/8, 'sha512').toString('hex');
-}
+    if(data.iv) {
+      console.log("Decryption Params: ", data);
+      cipher = crypto.createDecipheriv(data.cipher, new Buffer(data.key, 'hex'), new Buffer(data.iv, 'hex'));
+    } else {
+      console.log("Decryption Params: ", data);
+      cipher = crypto.createDecipher(data.cipher, new Buffer(data.key, 'hex'));
+    }
 
-console.log((decrypt ? "Decryption Key: " : "Encryption Key: "), key);
+    cipher.cryptor = data;
+    return stream.pipe(cipher);
+  },
+  parseFormData: function(formdata) {
+    var key = null;
+    var iv = null;
+    var salt = null;
+    var iterations = null;
+    var keylen = formdata.keylen || 256;
+    var cipher = formdata.cipher || ["aes",keylen,"cbc"].join('-');
+    var encrypt = formdata.encrypt;
 
-if(decrypt !== -1) {
-  cipher = crypto.createDecipheriv('aes-'+keylen+'-cbc', new Buffer(key,'hex'), new Buffer(iv,'hex'));
-  outfile = outfile.endsWith(".aes") ? outfile.replace(".aes","") : outfile+".decrypted"
-} else {
-  cipher = crypto.createCipheriv('aes-'+keylen+'-cbc', new Buffer(key,'hex'), new Buffer(iv,'hex'));
-  outfile += ".aes"
-}
+    // passphrase can be blank, contain a simple string, or '<key:iv>'
+    if(!formdata.passphrase) {
+      // passphrase is blank, so generate key for user
+      console.log("Generating <key:iv> for user");
+      salt = crypto.randomBytes(keylen/8).toString('hex'); 
+      iterations = formdata.iterations || this.iterations;
+      key = crypto.pbkdf2Sync(crypto.randomBytes(keylen/8), salt, iterations, keylen/8, 'sha512').toString('hex');
+      iv = crypto.randomBytes(keylen/16).toString('hex');
+    } else if(formdata.passphrase.indexOf(this.sep) === -1) {
+      // passphrase does not contain sep, so its a simple string
+      console.log("Simple Passphrase: ", formdata.passphrase);
+      key = formdata.passphrase;
+    } else {
+      // passphrase is 'key:iv'
+      console.log("Parsing key and iv from passphrase", formdata.passphrase);
+      key = formdata.passphrase.split(this.sep)[0];
+      iv = formdata.passphrase.split(this.sep)[1];
+    }
 
-if(out !== -1) {
-  outfile = process.argv[out+1];
-}
+    return {
+      cipher: cipher,
+      key: key,
+      salt: salt,
+      iterations: iterations,
+      iv: iv,
+      keylen: keylen,
+      sep: this.sep,
+      encrypt: encrypt
+    }
+  }
+};
 
-console.log("Output File: ", outfile);
-
-fs.createReadStream(infile).pipe(cipher).pipe(fs.createWriteStream(outfile));
-
-
-
-
+module.exports = Cryptor;
