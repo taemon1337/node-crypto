@@ -8,9 +8,15 @@ var Cryptor = function(opts) {
   this.salt = opts.salt || "1234567890abcdef1234567890abcdef"; // only for simple passphrase
   this.iv = opts.iv || "1234567890abcdef1234567890abcdef"; // only for simple passphrase
   this.keylen = opts.keylen || 256;
+  this.debug = opts.debug || false;
 }
 
 Cryptor.prototype = {
+  log: function() {
+    if(this.debug) {
+      console.apply('log', arguments);
+    }
+  },
   crypt: function(stream, formdata) {
     if(formdata.encrypt) {
       return this.encrypt(stream, formdata);
@@ -23,10 +29,10 @@ Cryptor.prototype = {
     var data = this.parseFormData(formdata);
 
     if(data.iv) {
-      console.log("Encryption Params: ", data);
+      this.log("Encryption Params: ", data);
       cipher = crypto.createCipheriv(data.cipher, new Buffer(data.key,'hex'), new Buffer(data.iv,'hex'));
     } else {
-      console.log("Encryption Params: ", data);
+      this.log("Encryption Params: ", data);
       cipher = crypto.createCipher(data.cipher, new Buffer(data.key,'hex'));
     }
 
@@ -38,10 +44,10 @@ Cryptor.prototype = {
     var data = this.parseFormData(formdata);
 
     if(data.iv) {
-      console.log("Decryption Params: ", data);
+      this.log("Decryption Params: ", data);
       cipher = crypto.createDecipheriv(data.cipher, new Buffer(data.key, 'hex'), new Buffer(data.iv, 'hex'));
     } else {
-      console.log("Decryption Params: ", data);
+      this.log("Decryption Params: ", data);
       cipher = crypto.createDecipher(data.cipher, new Buffer(data.key, 'hex'));
     }
 
@@ -60,18 +66,18 @@ Cryptor.prototype = {
     // passphrase can be blank, contain a simple string, or '<key:iv>'
     if(!formdata.passphrase) {
       // passphrase is blank, so generate key for user
-      console.log("Generating <key:iv> for user");
+      this.log("Generating <key:iv> for user");
       salt = crypto.randomBytes(keylen/8).toString('hex'); 
       iterations = formdata.iterations || this.iterations;
       key = crypto.pbkdf2Sync(crypto.randomBytes(keylen/8), salt, iterations, keylen/8, 'sha512').toString('hex');
       iv = crypto.randomBytes(16).toString('hex');
     } else if(formdata.passphrase.indexOf(this.sep) === -1) {
       // passphrase does not contain sep, so its a simple string
-      console.log("Simple Passphrase: ", formdata.passphrase);
+      this.log("Simple Passphrase: ", formdata.passphrase);
       key = formdata.passphrase;
     } else {
       // passphrase is 'key:iv'
-      console.log("Parsing key and iv from passphrase", formdata.passphrase);
+      this.log("Parsing key and iv from passphrase", formdata.passphrase);
       key = formdata.passphrase.split(this.sep)[0];
       iv = formdata.passphrase.split(this.sep)[1];
     }
@@ -86,7 +92,10 @@ Cryptor.prototype = {
       sep: this.sep,
       encrypt: encrypt
     }
-  }
+  },
+  getCiphers: function() {
+    return crypto.getCiphers();
+  } 
 };
 
 module.exports = Cryptor;
