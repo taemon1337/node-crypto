@@ -24,7 +24,6 @@ if(m = cipher.match(/(\d\d\d)/)) {
 }
 
 var CryptFile = function(infile, outfile, params, success) {
-  console.log(params);
   var input = fs.createReadStream(infile);
   var output = fs.createWriteStream(outfile);
   var crypt = cryptor.crypt(input, params);
@@ -72,7 +71,9 @@ if(cmd === "test") {
     cipher: cipher,
     keylen: keylen
   }, function(params, result) {
-    console.log( cipher, result);
+    if(result === "PASS") {
+      console.log( cipher, result);
+    }
   });
 }
 

@@ -70,7 +70,11 @@ Cryptor.prototype = {
       salt = crypto.randomBytes(keylen/8).toString('hex'); 
       iterations = formdata.iterations || this.iterations;
       key = crypto.pbkdf2Sync(crypto.randomBytes(keylen/8), salt, iterations, keylen/8, 'sha512').toString('hex');
-      iv = crypto.randomBytes(16).toString('hex');
+      if(cipher.match(/aes|camillia/)) {
+        iv = crypto.randomBytes(16).toString('hex'); // only aes and camillia ciphers use the iv
+      } else {
+        iv = 0; // others just use simple/no-iv
+      }
     } else if(formdata.passphrase.indexOf(this.sep) === -1) {
       // passphrase does not contain sep, so its a simple string
       this.log("Simple Passphrase: ", formdata.passphrase);

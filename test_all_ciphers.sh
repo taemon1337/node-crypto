@@ -1,6 +1,7 @@
 #!/bin/bash
 
 for cipher in $(cat ciphers.txt); do
-  node cli.js --cipher $cipher test
+  result=$(node cli.js --cipher $cipher test)
+  [[ $result =~ "PASS" ]] && echo $cipher >> passed_ciphers.txt
 done
 
